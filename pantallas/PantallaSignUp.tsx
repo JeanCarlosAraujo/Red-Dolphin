@@ -1,38 +1,46 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase/firebaseConfig";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../firebase/firebaseConfig";
 
-type PropsLogin = {
+type PropsSignUp = {
+  irALogin: () => void;
   irAChats: () => void;
-  irASignUp: () => void;
 };
 
-const PantallaLogin: React.FC<PropsLogin> = ({ irAChats, irASignUp }) => {
+const PantallaSignUp: React.FC<PropsSignUp> = ({ irALogin, irAChats }) => {
+  const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [clave, setClave] = useState("");
 
-  const manejarLogin = async () => {
+  const manejarSignUp = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, clave);
+      const cred = await createUserWithEmailAndPassword(auth, email, clave);
+      // guardar datos en firestore
+      await setDoc(doc(db, "users", cred.user.uid), {
+        nombre,
+        email,
+      });
       irAChats();
     } catch (e) {
-      console.log("error login:", e);
+      console.log("error registro:", e);
     }
   };
 
   return (
     <View style={estilos.contenedor}>
-      <Text style={estilos.titulo}>RedDolphin</Text>
+      <Text style={estilos.titulo}>Crear Cuenta</Text>
+      <TextInput placeholder="Name" value={nombre} onChangeText={setNombre} style={estilos.campo} />
       <TextInput placeholder="Email" value={email} onChangeText={setEmail} style={estilos.campo} />
       <TextInput placeholder="Password" value={clave} secureTextEntry onChangeText={setClave} style={estilos.campo} />
 
-      <TouchableOpacity onPress={manejarLogin} style={estilos.boton}>
-        <Text style={estilos.textoBoton}>Log In</Text>
+      <TouchableOpacity onPress={manejarSignUp} style={estilos.boton}>
+        <Text style={estilos.textoBoton}>Sing Up</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={irASignUp}>
-        <Text style={estilos.link}>Sing Up</Text>
+      <TouchableOpacity onPress={irALogin}>
+        <Text style={estilos.link}>ya tengo cuenta</Text>
       </TouchableOpacity>
     </View>
   );
@@ -47,4 +55,4 @@ const estilos = StyleSheet.create({
   link: { marginTop: 10, color: "#B22222" },
 });
 
-export default PantallaLogin;
+export default PantallaSignUp;
