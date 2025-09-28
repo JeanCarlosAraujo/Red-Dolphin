@@ -1,63 +1,94 @@
-import React from "react";
-// importa react para crear componentes funcionales
-import { View, StyleSheet, Text } from "react-native";
-// importa view (contenedor), stylesheet (para los estilos) y text desde react native
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, Text, FlatList, TouchableOpacity } from "react-native";
 import Encabezado from "../componentes/Encabezado";
-// importa el componente encabezado que muestra un titulo y un logo en la parte superior
 import ItemChat from "../componentes/ItemChat";
-// importa el componente itemchat que representa cada fila de chat en la lista
-import { TouchableOpacity } from "react-native";
-import { auth } from "../firebase/firebaseConfig";
-//-----------------------------------------------------------------------------------
-//-----------------------------------------------------------------------------------
-// se definen las props que recibira esta pantalla
+import { auth, db } from "../firebase/firebaseConfig";
+import { collection, onSnapshot } from "firebase/firestore";
+import { generarIdChat, obtenerResumenChat, crearChatSiNoExiste } from "../servicios/chatService";
+
 type PropsListaChats = {
-  irAChat: (nombre: string) => void;
+  irAChat: (nombre: string, uid: string, chatId: string) => void;
   irAPerfil: () => void;
+  irAAgregar: () => void;
 };
 
-//------------------------------------------------------------------------------
-//------------------------------------------------------------------------------
-// componente funcional que representa la pantalla con la lista de chats
-const PantallaListaChats: React.FC<PropsListaChats> = ({ irAChat, irAPerfil }) => {
+type Contacto = {
+  uid: string;
+  nombre: string;
+  apellido?: string;
+  lastMessage?: string;
+};
+
+const PantallaListaChats: React.FC<PropsListaChats> = ({ irAChat, irAPerfil, irAAgregar }) => {
+  const [contactos, setContactos] = useState<Contacto[]>([]);
+  const usuario = auth.currentUser;
+
+  useEffect(() => {
+    if (!usuario) return;
+    const contactosRef = collection(db, "usuarios", usuario.uid, "contactos");
+    const unsub = onSnapshot(contactosRef, async (snapshot) => {
+      const lista = await Promise.all(
+        snapshot.docs.map(async (d) => {
+          const data = d.data() as any;
+          const contactoUid = data.uid;
+          const nombre = data.nombre || "";
+          const apellido = data.apellido || "";
+          // obtener resumen del chat si existe
+          const chatId = generarIdChat(usuario.uid, contactoUid);
+          const resumen = await obtenerResumenChat(chatId);
+          return {
+            uid: contactoUid,
+            nombre,
+            apellido,
+            lastMessage: resumen?.lastMessage || "",
+          } as Contacto;
+        })
+      );
+      setContactos(lista);
+    });
+    return () => unsub();
+  }, []);
+
+  const abrirChat = async (c: Contacto) => {
+    if (!usuario) return;
+    const chatId = generarIdChat(usuario.uid, c.uid);
+    await crearChatSiNoExiste(chatId, [usuario.uid, c.uid]);
+    irAChat(c.nombre || c.uid, c.uid, chatId);
+  };
+
   return (
     <View style={estilos.contenedor}>
-    {/* vista principal que envuelve toda la pantalla y aplica el estilo contenedor */}
+      
       <Encabezado titulo="RedDolphin" logo={require("../assets/RedDolphinRojo.png")} />
-      {/* el caht de finn */}
       <TouchableOpacity onPress={irAPerfil} style={{ padding: 10 }}>
         <Text style={{ color: "blue" }}>ir a mi perfil</Text>
       </TouchableOpacity>
-      
-      <TouchableOpacity onPress={irAPerfil} style={{padding: 10}}>
-        <Text style={{ color: "blue" }}>ir a agregado</Text>
+      <TouchableOpacity onPress={irAAgregar} style={{ padding: 10 }}>
+        <Text style={{ color: "blue" }}>agregar contacto</Text>
       </TouchableOpacity>
 
-      <ItemChat
-        avatar={require("../usuarios/finn.png")}
-        nombre="Finn Bro"
-        mensaje="amigo, devuelvenos a BMO 😡😡"
-        alPresionar={() => irAChat("Finn Bro")}
-      />
-      {/* el caht de gunter */}
-      <ItemChat
-        avatar={require("../usuarios/gunter.png")}
-        nombre="Gunteralorg"
-        mensaje="cuak cuak cuak 4 cuak"
+      <FlatList
+        data={contactos}
+        keyExtractor={(item) => item.uid}
+        renderItem={({ item }) => (
+          <ItemChat
+            avatar={require("../usuarios/finn.png")}
+            nombre={item.nombre || item.uid}
+            mensaje={item.lastMessage || "sin mensajes aún"}
+            alPresionar={() => abrirChat(item)}
+          />
+        )}
       />
     </View>
   );
 };
-//----------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------
+
 const estilos = StyleSheet.create({
   contenedor: {
     flex: 1,
-    backgroundColor: "#FAEBD7"
-
+    backgroundColor: "#FAEBD7",
+    padding: 10,
   },
 });
 
-
-// exporta la pantalla para q pueda ser usada en la app
 export default PantallaListaChats;

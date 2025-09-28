@@ -3,7 +3,11 @@ import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert } from "reac
 import { auth, db } from "../firebase/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 
-const PantallaAgregarContacto: React.FC = () => {
+type PropsAgregarContacto = {
+  volverAChats: () => void; // nueva prop para regresar
+};
+
+const PantallaAgregarContacto: React.FC<PropsAgregarContacto> = ({ volverAChats }) => {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [uidContacto, setUidContacto] = useState("");
@@ -55,8 +59,14 @@ const PantallaAgregarContacto: React.FC = () => {
         onChangeText={setUidContacto}
         style={estilos.input}
       />
+
       <TouchableOpacity onPress={guardarContacto} style={estilos.boton}>
         <Text style={estilos.textoBoton}>Guardar</Text>
+      </TouchableOpacity>
+
+      {/* Botón extra para volver a chats */}
+      <TouchableOpacity onPress={volverAChats} style={[estilos.boton, { backgroundColor: "#7b7373ff" }]}>
+        <Text style={estilos.textoBoton}>Volver</Text>
       </TouchableOpacity>
     </View>
   );

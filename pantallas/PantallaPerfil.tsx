@@ -16,6 +16,7 @@ const PantallaPerfil: React.FC<PropsPerfil> = ({ irALogin }) => {
   };
 
   return (
+    
     <View style={estilos.contenedor}>
       {/* correo del usuario */}
       <Text style={estilos.email}>{usuario?.email}</Text>

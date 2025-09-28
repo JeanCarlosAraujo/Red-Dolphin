@@ -1,39 +1,60 @@
-import React from "react";// importa react para poder usar componentes funcionales
-import { View, StyleSheet, TextInput, TouchableOpacity, Text, Image } from "react-native";
-//importa componentes basicos de react native como view (contenedor), textinput (campo de texto), touchableopacity (boton tactil), text (mostrar texto), image (mostrar imagen)
-import Encabezado from "../componentes/Encabezado";
-//importa el componente de encabezado que ya esta hecho en la carpeta componentes
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList } from "react-native";
+import { auth } from "../firebase/firebaseConfig";
 import BurbujaMensaje from "../componentes/BurbujaMensaje";
-//importa el componente burbuja de mensaje para mostrar mensajes del chat
+import { escucharMensajes, enviarMensaje } from "../servicios/chatService";
 
-// se definen las props que recibira este componente
-type PropsChat = {
-  nombre: string;// el nombre del usuario con el que se chatea
-  volver: () => void;// funcion para volver atras
+type Props = {
+  nombre: string;
+  contactoUid: string;
+  chatId: string;
+  volver: () => void;
 };
 
-// componente funcional que representa la pantalla del chat
-const PantallaChat: React.FC<PropsChat> = ({ nombre, volver }) => {
+const PantallaChat: React.FC<Props> = ({ nombre, contactoUid, chatId, volver }) => {
+  const [mensajes, setMensajes] = useState<any[]>([]);
+  const [texto, setTexto] = useState("");
+  const usuarioUid = auth.currentUser?.uid || "";
+
+  useEffect(() => {
+    // escucha en tiempo real
+    const unsubscribe = escucharMensajes(chatId, (msgs) => {
+      setMensajes(msgs);
+    });
+    return () => unsubscribe();
+  }, [chatId]);
+
+  const manejarEnviar = async () => {
+    if (!texto.trim()) return;
+    await enviarMensaje(chatId, usuarioUid, texto.trim());
+    setTexto("");
+  };
+
   return (
     <View style={estilos.contenedor}>
-      {/* vista principal que ocupa toda la pantalla y aplica estilos de fondo */}
-      
-      <Encabezado
-        titulo={nombre}// titulo del encabezado sera el nombre recibido por props
-        logo={require("../usuarios/finn.png")}// logo fijo de usuario que se carga de la carpeta usuarios
-        alVolver={volver}// funcion que se ejecuta al darle a volver
-      />
-
-      <View style={estilos.chat}>
-        <BurbujaMensaje texto="traeme a BMO!!!" esRemitente={false} />
-        <BurbujaMensaje texto="hols" esRemitente={true} />
-        <BurbujaMensaje texto="no quiero" esRemitente={true} />
+      <View style={estilos.header}>
+        <TouchableOpacity onPress={volver}><Text style={{color:"#B22222", fontSize:30}}>{"<"} volver</Text></TouchableOpacity>
+        <Text style={estilos.titulo}>{nombre}</Text>
       </View>
 
-      <View style={estilos.entrada}>
-        <TextInput placeholder="Escribe un mensaje" style={estilos.campo} />
-        <TouchableOpacity>
-          <Text style={estilos.enviar}>➤</Text>
+      <FlatList
+        data={mensajes}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <BurbujaMensaje texto={item.texto} esRemitente={item.remitente === usuarioUid} />
+        )}
+        contentContainerStyle={{ padding: 10 }}
+      />
+
+      <View style={estilos.inputRow}>
+        <TextInput
+          placeholder="Escribe un mensaje..."
+          style={estilos.input}
+          value={texto}
+          onChangeText={setTexto}
+        />
+        <TouchableOpacity onPress={manejarEnviar} style={estilos.sendBtn}>
+          <Text style={{ color: "white", fontWeight: "bold" }}>➤</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -41,35 +62,12 @@ const PantallaChat: React.FC<PropsChat> = ({ nombre, volver }) => {
 };
 
 const estilos = StyleSheet.create({
-  contenedor: {
-    flex: 1,
-    backgroundColor: "#FAEBD7"
-
-  },
-  chat: {
-    flex: 1,
-    padding: 10
-
-  },
-  entrada: {
-    flexDirection: "row",
-    padding: 10,
-    alignItems: "center"
-
-  },
-  campo: {
-    flex: 1,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 20,
-    paddingHorizontal: 10
-
-  },
-  enviar: {
-    fontSize: 20,
-    color: "#B22222",
-    marginLeft: 8
-
-  },
+  contenedor: { flex: 1, backgroundColor: "#FAEBD7" },
+  header: { padding: 10, flexDirection: "row", alignItems: "center", backgroundColor: "#fff" },
+  titulo: { marginLeft: 10, fontWeight: "bold", fontSize: 18, color: "#B22222" },
+  inputRow: { flexDirection: "row", padding: 10, borderTopWidth: 1, borderColor: "#ddd", backgroundColor: "#fff" },
+  input: { flex: 1, backgroundColor: "#E0E0E0", borderRadius: 20, paddingHorizontal: 12 },
+  sendBtn: { marginLeft: 8, backgroundColor: "#B22222", padding: 12, borderRadius: 20, justifyContent: "center", alignItems: "center" },
 });
-export default PantallaChat;
 
+export default PantallaChat;
